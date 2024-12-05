@@ -278,10 +278,13 @@ $('#calculate').click(function () {
         var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
         var distance = R * c; // Distance in km
-        var bearing = calculateBearing(lat1, lon1, lat2, lon2);
+        // Calculate bearings
+        var incomingBearing = calculateBearing(lat1, lon1, lat2, lon2);
+        var outgoingBearing = calculateBearing(lat2, lon2, lat1, lon1);
 
-        $('#result').html('Jarak: ' + distance.toFixed(2) + ' km<br> Bearing: ' + bearing.toFixed(2) + '°');
-    });
+            // Show results
+            $('#result').html('Jarak: ' + distance.toFixed(2) + ' km<br>Incoming Bearing: ' + incomingBearing.toFixed(2) + '°<br>Outgoing Bearing: ' + outgoingBearing.toFixed(2) + '°');
+        });
 
     // Fungsi untuk menambahkan marker dan garis dari input manual
 function updateFromInput() {
