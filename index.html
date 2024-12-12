@@ -6,6 +6,7 @@
     <title>Distance and Bearing Calculator</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-curve/leaflet.curve.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
         /* Styling untuk body dan background */
@@ -13,18 +14,18 @@
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #fce4ec;
+            background-color: #f0f0f0;
         }
 
         /* Header bar */
         .header {
-            background-color: #ff80ab;
-            color: #ffffff;
+            background-color: #333;
+            color: #fff;
             text-align: center;
             padding: 15px 0;
-            font-size: 24px;
-            font-weight: bold;
+            font-size: 18px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            font-weight: bold;
             position: fixed;
             width: 100%;
             top: 0;
@@ -33,64 +34,63 @@
 
         /* Styling panel input yang mengambang */
         .up-panel {
-            position: fixed;
+            position: absolute;
             top: 10%;
-            right: 5%;
-            background-color: rgba(255, 255, 255, 0.9);
+            right: 0;
+            background-color: #fff;
             padding: 20px;
-            border-radius: 20px;
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
             z-index: 1000;
-            width: 280px;
-            display: flex;
-            flex-direction: column;
+            width: 240px;
+            height: 100vh;
+            overflow-y: auto;
         }
 
         .up-panel h1 {
-            text-align: center;
-            color: #ff4081;
-            font-size: 20px;
+           text-align: center;
+            color: #333;
+            font-size: 16px;
             margin-bottom: 10px;
         }
 
         .coord-label {
-            color: #ff4081;
-            font-size: 16px;
+             color: #555;
+            font-size: 14px;
             margin-bottom: 5px;
         }
 
         .coord-input {
-            width: 100%;
+             width: 100%;
             padding: 8px;
             margin: 10px 0;
-            border-radius: 5px;
-            border: 1px solid #ddd;
+            border: 2px solid #ccc;
+            font-size: 12px;
+            box-sizing: border-box;
         }
 
         /* Styling untuk hasil jarak dan bearing */
         #result {
-            background-color: #ff80ab;
-            color: white;
+            background-color: #333;
+            color: #fff;
             padding: 10px;
-            border-radius: 15px;
             margin-top: 10px;
-            font-size: 16px;
+            font-size: 12px;
             text-align: center;
         }
 
         button {
-            background-color: #ff80ab;
-            color: white;
+             background-color: #333;
+            color: #fff;
             border: none;
-            padding: 10px;
-            border-radius: 5px;
+            padding: 8px;
             width: 100%;
             cursor: pointer;
+            font-size: 14px;
             margin-top: 10px;
         }
 
         button:hover {
-            background-color: #ff4081;
+            background-color: #555;
         }
 
         #map {
@@ -107,26 +107,26 @@
         <span>Distance and Bearing Calculator</span>
     </div>
 
-    <!-- Panel di kanan atas untuk input koordinat -->
+    <!-- Panel di kanan untuk input koordinat -->
     <div class="up-panel">
         <h1>Koordinat Input</h1>
         <div>
-            <div class="coord-label">Latitude 1</div>
-            <input type="text" id="lat1" class="coord-input"><br>
+            <div class="coord-label">Titik 1</div>
+            <input type="text" id="lat1" placeholder="Contoh: -7.520"><br>
 
-            <div class="coord-label">Longitude 1</div>
-            <input type="text" id="lon1" class="coord-input"><br>
+            <div class="coord-label">Titik 1</div>
+            <input type="text" id="lon1" placeholder="Contoh: 112.560"><br>
         </div>
 
         <div>
-            <div class="coord-label">Latitude 2</div>
-            <input type="text" id="lat2" class="coord-input"><br>
+            <div class="coord-label">Titik 2</div>
+            <input type="text" id="lat2" placeholder="Contoh: -7.895"><br>
 
-            <div class="coord-label">Longitude 2</div>
-            <input type="text" id="lon2" class="coord-input"><br>
+            <div class="coord-label">Titik 2</div>
+            <input type="text" id="lon2"placeholder="Contoh: 112.898"><br>
         </div>
         
-        <button id="calculateBtn">Hitung</button>
+        <button id="calculateBtn">Calculate</button>
         <div id="result"></div>
     </div>
 
@@ -135,12 +135,25 @@
 
 <script>
     // Peta dengan Leaflet
-    var map = L.map('map').setView([0, 0], 2); // Set view ke koordinat default
+    var map = L.map('map').setView([-7.2575, 112.7521], 12);
+        var points = [];
+        var line = null;
+        var markers = [];
 
-    // Menggunakan basemap ESRI
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed'
-    }).addTo(map);
+        var baseLayers = {
+            "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
+            "Google Maps": L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+            }),
+            "Satellite": L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+            }),
+            "Terrain": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png')
+        };
+
+        baseLayers["OpenStreetMap"].addTo(map);
+        L.control.layers(baseLayers).addTo(map);
+        L.control.scale().addTo(map);
 
     var marker1, marker2, curveLine, clickCount = 0;
 
